@@ -21,10 +21,22 @@ def redirect_original(request, short_id):
  
 def shorten_url(request):
 	url = request.POST.get("url", '')
+	alias = request.POST.get("alias")
 	valid_url,url=validate_url(url)
 	if valid_url:
+		if alias !='':
+			for rec in record:
+				if record[rec]==alias and url!=rec:
+					return HttpResponse(json.dumps({"error": "error occurs", 'alias':-1, 'url':url}), content_type="application/json")	
+
 		if url in record:
 			short_id = record.get(url)
+			if alias !='' and alias != short_id:
+				b = urls.objects.get(pk=short_id)
+				b.short_id=alias
+				b.save()		
+				short_id = alias
+				record[url]=alias
 			response_data = {}
 			response_data['url'] = settings.SITE_URL + "/" + short_id
 			return HttpResponse(json.dumps(response_data),  content_type="application/json")
@@ -33,13 +45,20 @@ def shorten_url(request):
 			if is_already_short(url):
 				response_data = {}
 				return HttpResponse(json.dumps({"already_short": True}), content_type="application/json")
-			else:
+			elif alias=='':
 				short_id = get_short_code()
 				record.update({url:short_id})
 				b = urls(httpurl=url, short_id=short_id)
 				b.save()
 				response_data = {}
 				response_data['url'] = settings.SITE_URL + "/" + short_id
+				return HttpResponse(json.dumps(response_data),  content_type="application/json")
+			else:
+				record.update({url:alias})
+				b = urls(httpurl=url, short_id=alias)
+				b.save()
+				response_data={}
+				response_data['url'] = settings.SITE_URL + "/" + alias
 				return HttpResponse(json.dumps(response_data),  content_type="application/json")
 	return HttpResponse(json.dumps({"error": "error occurs", "valid_url":valid_url,'url':url}), content_type="application/json")
 
@@ -85,7 +104,7 @@ def is_already_short(url):
 def validate_url(url):
 	protocols=[
 		'http://',
-		'https://'
+		'https://',
 	]
 	flag=0
 	url_form_field = URLField()
